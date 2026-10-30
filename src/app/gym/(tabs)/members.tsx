@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useGymSheets } from '@/components/GymSheets';
 import { Avatar, Divider, Empty, Screen, SectionTitle, StatusBadge, T, TopBar } from '@/components/ui';
@@ -24,6 +24,10 @@ export default function Members() {
   const { open } = useGymSheets();
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<Filter>(params.filter ?? 'all');
+  // Home's "Needs attention" rows deep-link here with a filter; follow it when it changes.
+  useEffect(() => {
+    if (params.filter) setFilter(params.filter);
+  }, [params.filter]);
 
   const list = useMemo(
     () =>

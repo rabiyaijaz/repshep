@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
 import { AuthShell, Steps } from '@/components/AuthShell';
 import { FakeQR } from '@/components/FakeQR';
 import { Button, Checkbox, Field, T } from '@/components/ui';
@@ -116,8 +116,8 @@ export default function SignUpGym() {
           <View style={styles.qrWrap}>
             <FakeQR value={gym.code} />
           </View>
-          <Field label="Gym Invitation link" value={gym.link} icon="copy" onPress={() => {}} />
-          <Field label="Gym Invitation code" value={gym.code} icon="copy" onPress={() => {}} />
+          <Field label="Gym Invitation link" value={gym.link} icon="share-2" onPress={() => Share.share({ message: `Join ${d.name} on RepShep: ${gym.link}` }).catch(() => {})} />
+          <Field label="Gym Invitation code" value={gym.code} icon="share-2" onPress={() => Share.share({ message: `Join ${d.name} on RepShep with code ${gym.code}` }).catch(() => {})} />
           <T v="caption" color={colors.inkSoft}>
             Members can send join requests to your gym through this link or code.
           </T>

@@ -1,6 +1,7 @@
+import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useGymSheets } from '@/components/GymSheets';
 import { MembershipCard } from '@/components/MembershipCard';
 import { ActionTile, Avatar, Badge, Button, Card, Divider, Empty, Screen, Segmented, StatusBadge, T, TopBar } from '@/components/ui';
@@ -12,7 +13,7 @@ type Tab = 'poke' | 'history' | 'failed';
 // Member detail — Figma [Walkthrough] 27 (107:10785).
 export default function MemberDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { member, checkIn, renew, pokes, payments, activity } = useStore();
+  const { member, checkIn, renew, freeze, unfreeze, retryPoke, pokes, payments, visits, gym } = useStore();
   const { open, toast } = useGymSheets();
   const [tab, setTab] = useState<Tab>('history');
   const m = member(id);
@@ -25,13 +26,19 @@ export default function MemberDetail() {
     );
   }
 
+  const frozen = m.status === 'frozen';
   const myPokes = pokes.filter((p) => p.memberId === m.id);
   const failed = myPokes.filter((p) => p.status === 'failed');
   const history = [
-    ...payments.filter((p) => p.memberId === m.id).map((p) => ({ id: p.id, title: `PKR ${p.amount.toLocaleString()} · ${p.method}`, sub: p.category, at: p.at })),
-    // Nudges are listed from `pokes` above, so skip their activity-log copies.
-    ...activity.filter((a) => a.who === m.name && !a.title.includes('nudge')).map((a) => ({ id: a.id, title: a.title, sub: a.detail, at: a.at })),
+    ...payments.filter((p) => p.memberId === m.id).map((p) => ({ id: p.id, title: `PKR ${p.amount.toLocaleString()} paid · ${p.method}`, sub: p.category, at: p.at })),
+    ...visits.filter((v) => v.memberId === m.id).map((v) => ({ id: v.id, title: 'Checked in', sub: '', at: v.at })),
   ];
+
+  const doRenew = () => {
+    renew(m.id);
+    toast('Membership renewed to 14 Oct 2026');
+    setTimeout(() => open('payment', m.id), 350);
+  };
 
   return (
     <Screen>
@@ -44,7 +51,15 @@ export default function MemberDetail() {
             {m.phone}
           </T>
         </View>
-        <StatusBadge status={m.status} />
+        <View style={{ alignItems: 'flex-end', gap: space.xs }}>
+          <StatusBadge status={m.status} />
+          <Pressable onPress={() => open('editMember', m.id)} hitSlop={8} style={styles.edit} accessibilityLabel="Edit member">
+            <Feather name="edit-2" size={14} color={colors.primary} />
+            <T v="caption" color={colors.primary}>
+              Edit
+            </T>
+          </Pressable>
+        </View>
       </View>
       <Divider color={colors.line} />
       <View style={styles.stats}>
@@ -62,9 +77,22 @@ export default function MemberDetail() {
         </View>
       </View>
 
+      {m.renewalRequested && (
+        <Card tone="white" style={styles.notice}>
+          <Feather name="refresh-cw" size={18} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <T v="bodyM">{m.name.split(' ')[0]} asked to renew</T>
+            <T v="caption" color={colors.inkSoft}>
+              {m.plan} · sent from the member app
+            </T>
+          </View>
+          <Button label="Renew" small onPress={doRenew} />
+        </Card>
+      )}
+
       <Button
-        label={m.daysAway === 0 ? 'Checked in today' : 'Check in'}
-        disabled={m.daysAway === 0 || m.status === 'frozen'}
+        label={frozen ? 'Membership frozen' : m.daysAway === 0 ? 'Checked in today' : 'Check in'}
+        disabled={m.daysAway === 0 || frozen}
         onPress={() => {
           checkIn(m.id);
           toast(`${m.name.split(' ')[0]} checked in · +5 points`);
@@ -73,8 +101,20 @@ export default function MemberDetail() {
       />
       <View style={styles.actions}>
         <ActionTile icon="credit-card" label="Add payment" onPress={() => open('payment', m.id)} />
-        <ActionTile icon="message-square" label="Poke Member" onPress={() => open('poke', m.id)} />
-        <ActionTile icon="pause-circle" label="Freeze" onPress={() => toast('Freezing is coming soon')} />
+        <ActionTile icon="message-square" label="Poke Member" onPress={() => (frozen ? toast('Frozen memberships aren’t nudged') : open('poke', m.id))} />
+        <ActionTile
+          icon={frozen ? 'play-circle' : 'pause-circle'}
+          label={frozen ? 'Unfreeze' : 'Freeze'}
+          onPress={() => {
+            if (frozen) {
+              unfreeze(m.id);
+              toast('Membership active again');
+            } else {
+              freeze(m.id);
+              toast('Membership frozen');
+            }
+          }}
+        />
       </View>
 
       <Segmented<Tab>
@@ -88,10 +128,14 @@ export default function MemberDetail() {
       />
       <Card style={{ borderRadius: radius.md, gap: space.sm }}>
         {tab === 'poke' &&
-          (m.daysAway >= 2 ? (
+          (frozen ? (
+            <T v="body" color={colors.inkSoft}>
+              Paused — excluded from nudges.
+            </T>
+          ) : m.daysAway >= 2 ? (
             <View style={styles.rowBetween}>
               <T v="body">
-                {m.daysAway} days away · {m.daysAway >= 7 ? 'At risk' : 'Check gently'}
+                {m.daysAway} days away · {m.daysAway >= gym.rules.atRiskDays ? 'At risk' : 'Check gently'}
               </T>
               <Button label="Poke Member" small onPress={() => open('poke', m.id)} />
             </View>
@@ -116,6 +160,11 @@ export default function MemberDetail() {
                   <T v="caption" color={colors.inkSoft} numberOfLines={2}>
                     {p.message}
                   </T>
+                  {p.reply && (
+                    <T v="caption" color={colors.primary}>
+                      ↩ {p.reply}
+                    </T>
+                  )}
                   <T v="micro" color={colors.muted}>
                     {p.at}
                   </T>
@@ -143,31 +192,36 @@ export default function MemberDetail() {
             </T>
           ) : (
             failed.map((p) => (
-              <View key={p.id} style={{ gap: 2 }}>
-                <T v="bodyStrong">WhatsApp reminder failed</T>
-                <T v="caption" color={colors.inkSoft}>
-                  {p.at}
-                </T>
+              <View key={p.id} style={styles.rowBetween}>
+                <View style={{ flex: 1 }}>
+                  <T v="bodyStrong">WhatsApp reminder failed</T>
+                  <T v="caption" color={colors.inkSoft}>
+                    {p.at}
+                  </T>
+                </View>
+                <Button
+                  label="Retry in-app"
+                  small
+                  onPress={() => {
+                    retryPoke(p.id);
+                    toast('Resent in-app');
+                  }}
+                />
               </View>
             ))
           ))}
       </Card>
 
-      <MembershipCard
-        m={m}
-        action="Renew"
-        onAction={() => {
-          renew(m.id);
-          toast('Membership renewed to 14 Oct 2026');
-        }}
-      />
+      <MembershipCard m={m} action="Renew" onAction={doRenew} onMore={() => open('editMember', m.id)} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  edit: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   stats: { flexDirection: 'row', gap: space.xl },
   actions: { flexDirection: 'row', gap: space.xs },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.xs },
+  notice: { flexDirection: 'row', alignItems: 'center', gap: space.sm, borderRadius: radius.md, borderWidth: 1, borderColor: colors.primary },
 });

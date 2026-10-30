@@ -1,12 +1,13 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { Avatar, Badge, Button, Card, Field, SelectField, Sheet, T, useToast } from './ui';
+import { Feather } from '@expo/vector-icons';
+import { Avatar, Badge, Button, Card, Field, Pills, SelectField, Sheet, T, Toggle, useToast } from './ui';
 import { pkr, useStore } from '@/store';
 import { colors, radius, space } from '@/theme';
 
 // Bottom sheets from the gym dashboard (Figma 107:7229 Add Member, 107:7832 Record Payment,
 // 107:8993 Poke a member, 107:9778 / 107:10319 Communication channels, 107:8101 Gym details).
-type SheetKind = 'addMember' | 'payment' | 'poke' | 'channels' | 'gym';
+type SheetKind = 'addMember' | 'payment' | 'poke' | 'channels' | 'gym' | 'rules' | 'editMember' | 'packages' | 'session' | 'product';
 type Ctx = { open: (kind: SheetKind, memberId?: string) => void; toast: (m: string) => void };
 const SheetCtx = createContext<Ctx>({ open: () => {}, toast: () => {} });
 export const useGymSheets = () => useContext(SheetCtx);
@@ -39,6 +40,21 @@ export function GymSheetsProvider({ children }: { children: ReactNode }) {
       </Sheet>
       <Sheet visible={kind === 'gym'} onClose={close}>
         {kind === 'gym' && <GymDetails onDone={() => { close(); show('Gym details saved'); }} />}
+      </Sheet>
+      <Sheet visible={kind === 'rules'} onClose={close}>
+        {kind === 'rules' && <PokingRules onDone={() => { close(); show('Poking rules saved'); }} />}
+      </Sheet>
+      <Sheet visible={kind === 'editMember'} onClose={close}>
+        {kind === 'editMember' && memberId && <EditMember id={memberId} onDone={() => { close(); show('Member updated'); }} />}
+      </Sheet>
+      <Sheet visible={kind === 'packages'} onClose={close}>
+        {kind === 'packages' && <Packages onDone={() => { close(); show('Packages and timings saved'); }} />}
+      </Sheet>
+      <Sheet visible={kind === 'session'} onClose={close}>
+        {kind === 'session' && <AddSession onDone={() => { close(); show('Session added — members can book it now'); }} />}
+      </Sheet>
+      <Sheet visible={kind === 'product'} onClose={close}>
+        {kind === 'product' && <AddProduct onDone={() => { close(); show('Product added to the member shop'); }} />}
       </Sheet>
     </SheetCtx.Provider>
   );
@@ -162,7 +178,7 @@ function Channels({ onDone }: { onDone: (m: string) => void }) {
     return (
       <>
         <T v="h3">Connect WhatsApp</T>
-        <Field label="Business Whatsapp Number" value={gym.phone} icon="phone" onPress={() => {}} />
+        <Field label="Business Whatsapp Number" value={gym.phone} icon="phone" />
         <Card tone="white" style={{ gap: space.xs, borderRadius: radius.md }}>
           <View style={styles.rowBetween}>
             <T v="bodyM">Member return reminder</T>
@@ -232,7 +248,156 @@ function GymDetails({ onDone }: { onDone: () => void }) {
   );
 }
 
+function PokingRules({ onDone }: { onDone: () => void }) {
+  const { gym, setGym } = useStore();
+  const [r, setR] = useState(gym.rules);
+  return (
+    <>
+      <T v="h3">Poking rules</T>
+      <T v="body" color={colors.inkSoft}>
+        Who shows up in “Needs a poke”, and how often they hear from you.
+      </T>
+      <T v="bodyM" style={{ marginTop: space.xs }}>
+        Mark as “at risk” after
+      </T>
+      <Pills options={['5 days', '7 days', '10 days', '14 days']} value={`${r.atRiskDays} days`} onChange={(v) => setR({ ...r, atRiskDays: parseInt(v, 10) })} />
+      <T v="bodyM" style={{ marginTop: space.xs }}>
+        Nudges per member per week
+      </T>
+      <Pills options={['1', '2', '3']} value={String(r.maxPerWeek)} onChange={(v) => setR({ ...r, maxPerWeek: Number(v) })} />
+      <Card tone="white" style={{ borderRadius: radius.md, paddingVertical: space.xs }}>
+        <Toggle value={r.quietHours} onChange={(quietHours) => setR({ ...r, quietHours })} label="Respect quiet hours" sub="No messages between 11 PM and 8 AM" />
+      </Card>
+      <T v="caption" color={colors.inkSoft}>
+        Frozen memberships are never nudged.
+      </T>
+      <Button
+        label="Save rules"
+        onPress={() => {
+          setGym((g) => ({ ...g, rules: r }));
+          onDone();
+        }}
+      />
+    </>
+  );
+}
+
+function EditMember({ id, onDone }: { id: string; onDone: () => void }) {
+  const { member, gym, updateMember } = useStore();
+  const m = member(id)!;
+  const [d, setD] = useState({ name: m.name, phone: m.phone, email: m.email ?? '', expiry: m.expiry });
+  const [plan, setPlan] = useState(m.plan);
+  const set = (k: keyof typeof d) => (v: string) => setD((x) => ({ ...x, [k]: v }));
+  return (
+    <>
+      <T v="h3">Edit member</T>
+      <Field label="Full Name" value={d.name} onChangeText={set('name')} />
+      <Field label="Whatsapp Number" value={d.phone} onChangeText={set('phone')} icon="phone" keyboardType="phone-pad" />
+      <Field label="Member email (optional)" value={d.email} onChangeText={set('email')} icon="mail" keyboardType="email-address" />
+      <SelectField label="Membership plan" value={plan} options={gym.packages.filter((p) => p.name !== 'Registration').map((p) => p.name)} onChange={setPlan} />
+      <Field label="Membership expiry" value={d.expiry} onChangeText={set('expiry')} icon="calendar" />
+      <Button
+        label="Save changes"
+        disabled={d.name.trim().length < 2}
+        onPress={() => {
+          updateMember(id, { ...d, email: d.email || undefined, plan });
+          onDone();
+        }}
+      />
+    </>
+  );
+}
+
+function Packages({ onDone }: { onDone: () => void }) {
+  const { gym, setGym } = useStore();
+  const [pkgs, setPkgs] = useState(gym.packages.map((p) => ({ name: p.name, price: String(p.price) })));
+  const [timings, setTimings] = useState(gym.timings.join('\n'));
+  const [facilities, setFacilities] = useState(gym.facilities);
+  const edit = (i: number, k: 'name' | 'price', v: string) => setPkgs((ps) => ps.map((p, j) => (j === i ? { ...p, [k]: k === 'price' ? v.replace(/[^0-9]/g, '') : v } : p)));
+  return (
+    <>
+      <T v="h3">Packages & timings</T>
+      {pkgs.map((p, i) => (
+        <View key={i} style={styles.pkgRow}>
+          <View style={{ flex: 1 }}>
+            <Field label="Package" value={p.name} onChangeText={(v) => edit(i, 'name', v)} />
+          </View>
+          <View style={{ width: 110 }}>
+            <Field label="PKR" value={p.price} onChangeText={(v) => edit(i, 'price', v)} keyboardType="number-pad" />
+          </View>
+          <Pressable accessibilityLabel={`Remove ${p.name}`} onPress={() => setPkgs((ps) => ps.filter((_, j) => j !== i))} hitSlop={8}>
+            <Feather name="trash-2" size={18} color={colors.error} />
+          </Pressable>
+        </View>
+      ))}
+      <Button label="Add package" kind="white" small icon="plus" onPress={() => setPkgs((ps) => [...ps, { name: 'New package', price: '0' }])} />
+      <Field label="Timings (one per line)" value={timings} onChangeText={setTimings} multiline />
+      <Field label="Facilities" value={facilities} onChangeText={setFacilities} multiline />
+      <Button
+        label="Save"
+        onPress={() => {
+          setGym((g) => ({
+            ...g,
+            packages: pkgs.filter((p) => p.name.trim()).map((p) => ({ name: p.name.trim(), price: Number(p.price) || 0 })),
+            timings: timings.split('\n').map((t) => t.trim()).filter(Boolean),
+            facilities,
+          }));
+          onDone();
+        }}
+      />
+    </>
+  );
+}
+
+function AddSession({ onDone }: { onDone: () => void }) {
+  const { addSession } = useStore();
+  const [d, setD] = useState({ title: '', trainer: 'Hamza Khan', time: '7pm–8pm', capacity: '8' });
+  const [day, setDay] = useState('Tomorrow');
+  const set = (k: keyof typeof d) => (v: string) => setD((x) => ({ ...x, [k]: v }));
+  return (
+    <>
+      <T v="h3">Add a session</T>
+      <Field label="Session name" value={d.title} onChangeText={set('title')} placeholder="Ladies HIIT" />
+      <Field label="Trainer" value={d.trainer} onChangeText={set('trainer')} icon="user" />
+      <T v="bodyM">Day</T>
+      <Pills options={['Today', 'Tomorrow', 'Saturday', 'Sunday']} value={day} onChange={setDay} />
+      <Field label="Time" value={d.time} onChangeText={set('time')} icon="clock" />
+      <Field label="Spots" value={d.capacity} onChangeText={(v) => set('capacity')(v.replace(/[^0-9]/g, ''))} keyboardType="number-pad" />
+      <Button
+        label="Add session"
+        disabled={d.title.trim().length < 2 || !Number(d.capacity)}
+        onPress={() => {
+          addSession({ title: d.title.trim(), trainer: d.trainer, day, time: d.time, capacity: Number(d.capacity) });
+          onDone();
+        }}
+      />
+    </>
+  );
+}
+
+function AddProduct({ onDone }: { onDone: () => void }) {
+  const { addProduct } = useStore();
+  const [name, setName] = useState('');
+  const [price, setPrice] = useState('');
+  return (
+    <>
+      <T v="h3">Add a product</T>
+      <Field label="Product name" value={name} onChangeText={setName} placeholder="Pre-workout · 300 g" />
+      <Field label="Price (PKR)" value={price} onChangeText={(v) => setPrice(v.replace(/[^0-9]/g, ''))} keyboardType="number-pad" />
+      <Button
+        label="Add to shop"
+        disabled={name.trim().length < 2 || !Number(price)}
+        onPress={() => {
+          addProduct(name.trim(), Number(price));
+          onDone();
+        }}
+      />
+    </>
+  );
+}
+
 const styles = StyleSheet.create({
+  pkgRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.white, borderRadius: radius.pill, paddingVertical: 6, paddingHorizontal: 10 },
   chipOn: { backgroundColor: colors.primary },
   whoCard: { borderRadius: radius.sm, paddingVertical: space.sm, gap: 2 },

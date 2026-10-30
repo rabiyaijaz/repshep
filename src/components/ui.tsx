@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, font, radius, space, type } from '@/theme';
-import { initials, useStore, type MemberStatus } from '@/store';
+import { initials, ME, useStore, type MemberStatus } from '@/store';
 import { Wordmark } from './Logo';
 
 export type IconName = ComponentProps<typeof Feather>['name'];
@@ -58,8 +58,26 @@ export function Screen({
   );
 }
 
-export function TopBar({ back, onBell, bellDot }: { back?: boolean; onBell?: () => void; bellDot?: boolean }) {
-  const { role } = useStore();
+// Logo/back + bell + ⋮ menu. The bell and menu work the same on every screen of a side.
+export function TopBar({ back }: { back?: boolean }) {
+  const { role, setRole, requests, pokes } = useStore();
+  const [menu, setMenu] = useState(false);
+  const isMember = role === 'member';
+  const bellDot = isMember ? pokes.some((p) => p.memberId === ME && p.status === 'delivered' && !p.read) : requests.length > 0;
+  const links: { label: string; icon: IconName; go: () => void }[] = isMember
+    ? [
+        { label: 'Messages', icon: 'message-square', go: () => router.push('/member/inbox') },
+        { label: 'Classes', icon: 'calendar', go: () => router.push('/member/classes') },
+        { label: 'Rewards', icon: 'gift', go: () => router.push('/member/rewards') },
+        { label: 'Profile', icon: 'user', go: () => router.navigate('/member/profile') },
+      ]
+    : [
+        { label: 'Join requests', icon: 'user-plus', go: () => router.push('/gym/requests') },
+        { label: 'Earnings', icon: 'trending-up', go: () => router.push('/gym/earnings') },
+        { label: 'Schedule', icon: 'calendar', go: () => router.push('/gym/schedule') },
+        { label: 'Team activity', icon: 'activity', go: () => router.push('/gym/activity') },
+        { label: 'Settings', icon: 'settings', go: () => router.navigate('/gym/settings') },
+      ];
   return (
     <View style={styles.topBar}>
       {back ? (
@@ -79,12 +97,85 @@ export function TopBar({ back, onBell, bellDot }: { back?: boolean; onBell?: () 
         </View>
       )}
       <View style={styles.topRight}>
-        <Pressable accessibilityLabel="Notifications" onPress={onBell} hitSlop={8}>
+        <Pressable
+          accessibilityLabel={isMember ? 'Messages' : 'Join requests and activity'}
+          onPress={() => router.push(isMember ? '/member/inbox' : requests.length ? '/gym/requests' : '/gym/activity')}
+          hitSlop={8}
+        >
           <Feather name="bell" size={22} color={colors.ink} />
           {bellDot && <View style={styles.dot} />}
         </Pressable>
-        <Feather name="more-vertical" size={20} color={colors.ink} />
+        <Pressable accessibilityLabel="More" onPress={() => setMenu(true)} hitSlop={8}>
+          <Feather name="more-vertical" size={20} color={colors.ink} />
+        </Pressable>
       </View>
+      <Modal visible={menu} transparent animationType="fade" onRequestClose={() => setMenu(false)}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenu(false)} accessibilityLabel="Close menu" />
+        <SafeAreaView edges={['top']} pointerEvents="box-none" style={{ alignItems: 'flex-end', paddingRight: space.sm }}>
+          <View style={styles.popover}>
+            {links.map((l) => (
+              <Pressable
+                key={l.label}
+                style={styles.popItem}
+                onPress={() => {
+                  setMenu(false);
+                  l.go();
+                }}
+              >
+                <Feather name={l.icon} size={16} color={colors.ink} />
+                <T v="bodyStrong">{l.label}</T>
+              </Pressable>
+            ))}
+            <Divider color={colors.surface} />
+            <Pressable
+              style={styles.popItem}
+              onPress={() => {
+                setMenu(false);
+                setRole(null);
+                router.replace('/welcome');
+              }}
+            >
+              <Feather name="log-out" size={16} color={colors.danger} />
+              <T v="bodyStrong" color={colors.danger}>
+                Log out
+              </T>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </Modal>
+    </View>
+  );
+}
+
+export function Toggle({ value, onChange, label, sub }: { value: boolean; onChange: (v: boolean) => void; label: string; sub?: string }) {
+  return (
+    <Pressable onPress={() => onChange(!value)} style={styles.toggleRow} accessibilityRole="switch" accessibilityState={{ checked: value }} accessibilityLabel={label}>
+      <View style={{ flex: 1 }}>
+        <T v="bodyM">{label}</T>
+        {sub ? (
+          <T v="caption" color={colors.inkSoft}>
+            {sub}
+          </T>
+        ) : null}
+      </View>
+      <View style={[styles.track, value && { backgroundColor: colors.primary }]}>
+        <View style={[styles.knob, value && { transform: [{ translateX: 20 }] }]} />
+      </View>
+    </Pressable>
+  );
+}
+
+// Row of pill options (pick one).
+export function Pills({ options, value, onChange }: { options: string[]; value: string; onChange: (v: string) => void }) {
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.xs }}>
+      {options.map((o) => (
+        <Pressable key={o} onPress={() => onChange(o)} style={[styles.pill, o === value && { backgroundColor: colors.teal }]} accessibilityRole="radio" accessibilityState={{ selected: o === value }}>
+          <T v="caption" color={o === value ? colors.white : colors.ink}>
+            {o}
+          </T>
+        </Pressable>
+      ))}
     </View>
   );
 }
@@ -489,4 +580,10 @@ const styles = StyleSheet.create({
   toast: { position: 'absolute', left: space.sm, right: space.sm, bottom: 110, alignItems: 'center' },
   toastInner: { flexDirection: 'row', alignItems: 'center', gap: space.sm, backgroundColor: colors.ink, borderRadius: radius.md, paddingHorizontal: space.md, paddingVertical: space.sm, alignSelf: 'stretch' },
   empty: { alignItems: 'center', gap: space.xs, padding: space.xl },
+  popover: { marginTop: 48, backgroundColor: colors.white, borderRadius: radius.md, paddingVertical: 6, minWidth: 200, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 10 },
+  popItem: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.md, paddingVertical: 12 },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: space.xs },
+  track: { width: 46, height: 26, borderRadius: 13, backgroundColor: colors.line, padding: 3 },
+  knob: { width: 20, height: 20, borderRadius: 10, backgroundColor: colors.white },
+  pill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: colors.white },
 });

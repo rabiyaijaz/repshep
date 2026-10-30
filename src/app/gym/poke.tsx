@@ -10,7 +10,7 @@ type Tab = 'needs' | 'history' | 'failed';
 
 // Poke hub — Figma [Walkthrough] 30 / 28 / 24 (107:8791, 107:9426, 107:9264).
 export default function Poke() {
-  const { pokes, member, retryPoke } = useStore();
+  const { pokes, member, retryPoke, gym } = useStore();
   const needs = useNeedsPoke();
   const { open, toast } = useGymSheets();
   const [tab, setTab] = useState<Tab>('needs');
@@ -32,7 +32,7 @@ export default function Poke() {
         </T>
       </Card>
       <View style={styles.row}>
-        <Button label="Poking rules" kind="accent" style={{ flex: 1 }} onPress={() => toast('Rules: nudge after 7 days away, max 1 per week')} />
+        <Button label="Poking rules" kind="accent" style={{ flex: 1 }} onPress={() => open('rules')} />
         <Button label="Channel setup" style={{ flex: 1 }} onPress={() => open('channels')} />
       </View>
       <Segmented<Tab>
@@ -59,7 +59,7 @@ export default function Poke() {
                   </View>
                   <View style={styles.between}>
                     <T v="body" color={colors.inkSoft}>
-                      {m.daysAway} days away · {m.daysAway >= 7 ? 'At risk' : 'Check gently'}
+                      {m.daysAway} days away · {m.daysAway >= gym.rules.atRiskDays ? 'At risk' : 'Check gently'}
                     </T>
                     <Pressable onPress={() => open('poke', m.id)} hitSlop={8}>
                       <T v="bodyM" color={colors.primary}>
@@ -87,6 +87,17 @@ export default function Poke() {
                   {p.channel} nudge · {p.at}
                 </T>
                 <T v="body">{p.message}</T>
+                {p.reply ? (
+                  <View style={styles.reply}>
+                    <T v="caption" color={colors.white}>
+                      Replied: {p.reply}
+                    </T>
+                  </View>
+                ) : (
+                  <T v="caption" color={colors.muted}>
+                    No reply yet
+                  </T>
+                )}
               </View>
             ))
           ))}
@@ -125,4 +136,5 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   item: { paddingVertical: space.md, gap: space.sm },
+  reply: { alignSelf: 'flex-start', backgroundColor: colors.primary, borderRadius: radius.sm, paddingHorizontal: 10, paddingVertical: 4 },
 });

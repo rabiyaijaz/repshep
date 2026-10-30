@@ -10,7 +10,8 @@ export default function CheckIn() {
   const me = member(ME)!;
   const { show, node } = useToast();
   const done = me.daysAway === 0;
-  const pending = joinState !== 'approved';
+  const frozen = me.status === 'frozen';
+  const pending = joinState !== 'approved' || frozen;
 
   return (
     <>
@@ -28,7 +29,7 @@ export default function CheckIn() {
             {me.name}
           </T>
           <T v="caption" color={colors.accent}>
-            {pending ? 'Waiting for the gym to accept your request' : `${me.plan} · valid till ${me.expiry}`}
+            {frozen ? 'Membership paused — ask the front desk to unfreeze' : pending ? 'Waiting for the gym to accept your request' : `${me.plan} · valid till ${me.expiry}`}
           </T>
         </Card>
         {done ? (

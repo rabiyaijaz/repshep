@@ -1,20 +1,14 @@
+import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
-import { Badge, Button, Card, IconBubble, Screen, T, TopBar, useToast, type IconName } from '@/components/ui';
+import { AttentionRow, Badge, Button, Card, Empty, IconBubble, Screen, T, TopBar, useToast } from '@/components/ui';
 import { ME, pkr, useStore } from '@/store';
 import { colors, radius, space } from '@/theme';
 
-const PRODUCTS: { item: string; price: number; icon: IconName }[] = [
-  { item: 'Whey protein · 1 kg', price: 9500, icon: 'package' },
-  { item: 'Creatine · 300 g', price: 4200, icon: 'package' },
-  { item: 'Shaker bottle', price: 1200, icon: 'droplet' },
-  { item: 'Lifting gloves', price: 1800, icon: 'shield' },
-  { item: 'Gym towel', price: 900, icon: 'square' },
-];
-
 // Order from the gym counter; pick up and pay at the front desk.
 export default function MemberShop() {
-  const { orders, placeOrder } = useStore();
+  const { orders, products, placeOrder, member } = useStore();
   const mine = orders.filter((o) => o.memberId === ME && o.status !== 'collected');
+  const inStock = products.filter((p) => p.inStock);
   const { show, node } = useToast();
 
   return (
@@ -33,8 +27,9 @@ export default function MemberShop() {
             </T>
             {mine.map((o) => (
               <View key={o.id} style={styles.between}>
-                <T v="body" color={colors.white}>
+                <T v="body" color={colors.white} style={{ flex: 1 }}>
                   {o.item}
+                  {o.reward ? ' · reward' : ''}
                 </T>
                 <Badge label={o.status === 'ready' ? 'Ready for pickup' : 'Preparing'} bg={o.status === 'ready' ? colors.accent : colors.white} fg={colors.ink} />
               </View>
@@ -42,12 +37,15 @@ export default function MemberShop() {
           </Card>
         )}
 
-        {PRODUCTS.map((p) => (
-          <Card key={p.item} style={[styles.between, { borderRadius: radius.md }]}>
+        <AttentionRow icon="gift" title={`${member(ME)?.points ?? 0} reward points`} sub="Swap points for shakes, towels and PT" onPress={() => router.push('/member/rewards')} />
+
+        {inStock.length === 0 && <Empty icon="shopping-bag" title="Nothing in stock right now" />}
+        {inStock.map((p) => (
+          <Card key={p.id} style={[styles.between, { borderRadius: radius.md }]}>
             <View style={styles.row}>
               <IconBubble icon={p.icon} />
-              <View>
-                <T v="bodyM">{p.item}</T>
+              <View style={{ flexShrink: 1 }}>
+                <T v="bodyM">{p.name}</T>
                 <T v="caption" color={colors.inkSoft}>
                   {pkr(p.price)}
                 </T>
@@ -57,8 +55,8 @@ export default function MemberShop() {
               label="Order"
               small
               onPress={() => {
-                placeOrder(ME, p.item, p.price);
-                show(`${p.item} ordered`);
+                placeOrder(ME, p.name, p.price);
+                show(`${p.name} ordered`);
               }}
             />
           </Card>

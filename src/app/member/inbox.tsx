@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Button, Card, Empty, Screen, T, TopBar } from '@/components/ui';
+import { Button, Card, Empty, Field, Screen, T, TopBar } from '@/components/ui';
 import { LogoMark } from '@/components/Logo';
 import { ME, useStore } from '@/store';
 import { colors, radius, space } from '@/theme';
@@ -9,14 +9,14 @@ const REPLIES = ['I’ll be in today', 'This week, inshallah', 'Need help with m
 
 // Nudges the gym sent ("pokes"), with quick replies.
 export default function Inbox() {
-  const { pokes, gym, markPokesRead } = useStore();
+  const { pokes, gym, markPokesRead, replyToPoke } = useStore();
   const mine = pokes.filter((p) => p.memberId === ME && p.status === 'delivered');
-  const [replied, setReplied] = useState<Record<string, string>>({});
+  const [custom, setCustom] = useState<Record<string, string>>({});
 
+  // Opening the inbox marks the gym's messages as read (clears the bell dot).
   useEffect(() => {
     markPokesRead(ME);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mine.length]);
+  }, [mine.length, markPokesRead]);
 
   return (
     <Screen>
@@ -38,18 +38,26 @@ export default function Inbox() {
             </View>
           </View>
           <T v="bodyL">{p.message}</T>
-          {replied[p.id] ? (
+          {p.reply ? (
             <View style={styles.reply}>
               <T v="bodyStrong" color={colors.white}>
-                {replied[p.id]}
+                {p.reply}
               </T>
             </View>
           ) : (
-            <View style={styles.chips}>
-              {REPLIES.map((r) => (
-                <Button key={r} label={r} kind="white" small onPress={() => setReplied((x) => ({ ...x, [p.id]: r }))} />
-              ))}
-            </View>
+            <>
+              <View style={styles.chips}>
+                {REPLIES.map((r) => (
+                  <Button key={r} label={r} kind="white" small onPress={() => replyToPoke(p.id, r)} />
+                ))}
+              </View>
+              <View style={styles.row}>
+                <View style={{ flex: 1 }}>
+                  <Field label="Write a reply" value={custom[p.id] ?? ''} onChangeText={(v) => setCustom((x) => ({ ...x, [p.id]: v }))} placeholder="Type here..." />
+                </View>
+                <Button label="Send" small disabled={!custom[p.id]?.trim()} onPress={() => replyToPoke(p.id, custom[p.id].trim())} />
+              </View>
+            </>
           )}
         </Card>
       ))}

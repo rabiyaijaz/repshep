@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, Pattern, Rect } from 'react-native-svg';
 import { Button, Divider, T } from './ui';
 import { pkr, type Member } from '@/store';
@@ -7,7 +7,21 @@ import { colors, radius, space } from '@/theme';
 
 // Blue dotted membership card (Figma 107:10785). Used on the gym's member page
 // and on the member's own home screen.
-export function MembershipCard({ m, gymName, action, onAction }: { m: Member; gymName?: string; action?: string; onAction?: () => void }) {
+export function MembershipCard({
+  m,
+  gymName,
+  action,
+  onAction,
+  onMore,
+  note,
+}: {
+  m: Member;
+  gymName?: string;
+  action?: string;
+  onAction?: () => void;
+  onMore?: () => void;
+  note?: string;
+}) {
   return (
     <View style={styles.card}>
       <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
@@ -29,7 +43,11 @@ export function MembershipCard({ m, gymName, action, onAction }: { m: Member; gy
             {m.plan}
           </T>
         </View>
-        <Feather name="more-vertical" size={20} color={colors.white} />
+        {onMore && (
+          <Pressable onPress={onMore} hitSlop={10} accessibilityLabel="Membership options">
+            <Feather name="more-vertical" size={20} color={colors.white} />
+          </Pressable>
+        )}
       </View>
       <View style={[styles.rowBetween, { marginTop: space.md }]}>
         <T v="bodyL" color={colors.white}>
@@ -56,6 +74,11 @@ export function MembershipCard({ m, gymName, action, onAction }: { m: Member; gy
           Expiry: {m.expiry}
         </T>
       </View>
+      {note ? (
+        <T v="bodyStrong" color={colors.accent} style={{ marginTop: space.sm, textAlign: 'center' }}>
+          {note}
+        </T>
+      ) : null}
       {action && <Button label={action} kind="accent" onPress={onAction} style={{ marginTop: space.md, height: 56 }} />}
     </View>
   );
