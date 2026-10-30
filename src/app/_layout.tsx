@@ -10,6 +10,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { DeviceFrame } from '@/components/DeviceFrame';
 import { StoreProvider } from '@/store';
 import { colors } from '@/theme';
 
@@ -21,7 +22,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <StoreProvider>
         <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />
+        <DeviceFrame>
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />
+        </DeviceFrame>
       </StoreProvider>
     </SafeAreaProvider>
   );

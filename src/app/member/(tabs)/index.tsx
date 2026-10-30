@@ -105,7 +105,7 @@ export default function MemberHome() {
             </T>
           </Card>
           <Pressable style={{ flex: 1 }} onPress={() => router.push('/member/rewards')} accessibilityRole="button" accessibilityLabel={`${me.points} points, open rewards`}>
-            <Card style={[styles.stat, { flex: 0 }]}>
+            <Card style={styles.stat}>
               <T v="h2" color={colors.primary}>
                 {me.points}
               </T>

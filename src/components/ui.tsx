@@ -4,7 +4,6 @@ import { useEffect, useState, type ComponentProps, type ReactNode } from 'react'
 import {
   Image,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -21,6 +20,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors, font, radius, space, type } from '@/theme';
 import { initials, ME, useStore, type MemberStatus } from '@/store';
 import { Wordmark } from './Logo';
+import { Overlay } from './Overlay';
 
 export type IconName = ComponentProps<typeof Feather>['name'];
 
@@ -109,7 +109,7 @@ export function TopBar({ back }: { back?: boolean }) {
           <Feather name="more-vertical" size={20} color={colors.ink} />
         </Pressable>
       </View>
-      <Modal visible={menu} transparent animationType="fade" onRequestClose={() => setMenu(false)}>
+      <Overlay visible={menu} onRequestClose={() => setMenu(false)}>
         <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenu(false)} accessibilityLabel="Close menu" />
         <SafeAreaView edges={['top']} pointerEvents="box-none" style={{ alignItems: 'flex-end', paddingRight: space.sm }}>
           <View style={styles.popover}>
@@ -142,7 +142,7 @@ export function TopBar({ back }: { back?: boolean }) {
             </Pressable>
           </View>
         </SafeAreaView>
-      </Modal>
+      </Overlay>
     </View>
   );
 }
@@ -487,7 +487,7 @@ export function Checkbox({ checked, onChange, label }: { checked: boolean; onCha
 export function Sheet({ visible, onClose, title, children }: { visible: boolean; onClose: () => void; title?: string; children: ReactNode }) {
   const insets = useSafeAreaInsets();
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Overlay visible={visible} animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.sheetWrap}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
         <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space.md) }]}>
@@ -502,7 +502,7 @@ export function Sheet({ visible, onClose, title, children }: { visible: boolean;
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
-    </Modal>
+    </Overlay>
   );
 }
 
