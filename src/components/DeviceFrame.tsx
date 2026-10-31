@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaFrameContext, SafeAreaInsetsContext } from 'react-native-safe-area-context';
@@ -60,6 +60,9 @@ export function DeviceFrame({ children }: { children: ReactNode }) {
 }
 
 function StatusBarMock() {
+  // White status bar over the splash photo, dark everywhere else (as in Figma).
+  const light = usePathname() === '/';
+  const fg = light ? colors.white : colors.ink;
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30_000);
@@ -68,19 +71,19 @@ function StatusBarMock() {
   const time = `${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, '0')}`;
   return (
     <View style={styles.status} pointerEvents="none">
-      <T v="bodyM" style={{ fontFamily: font.semibold, width: 80, textAlign: 'center' }}>
+      <T v="bodyM" color={fg} style={{ fontFamily: font.semibold, width: 80, textAlign: 'center' }}>
         {time}
       </T>
       <View style={styles.island} />
       <View style={styles.statusRight}>
         <View style={styles.signal}>
           {[4, 6, 8, 10].map((h) => (
-            <View key={h} style={[styles.signalBar, { height: h }]} />
+            <View key={h} style={[styles.signalBar, { height: h, backgroundColor: fg }]} />
           ))}
         </View>
-        <Feather name="wifi" size={14} color={colors.ink} />
-        <View style={styles.battery}>
-          <View style={styles.batteryFill} />
+        <Feather name="wifi" size={14} color={fg} />
+        <View style={[styles.battery, { borderColor: fg }]}>
+          <View style={[styles.batteryFill, { backgroundColor: fg }]} />
         </View>
       </View>
     </View>
